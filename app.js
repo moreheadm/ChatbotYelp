@@ -12,7 +12,7 @@ var botbuilder_azure = require("botbuilder-azure");
 // Setup Restify Server
 var server = restify.createServer();
 server.listen(process.env.port || process.env.PORT || 3978, function () {
-   console.log('%s listening to %s', server.name, server.url);
+    console.log('%s listening to %s', server.name, server.url);
 });
 
 // Create chat connector for communicating with the Bot Framework Service
@@ -41,8 +41,39 @@ var inMemoryStorage = new builder.MemoryBotStorage();
 var bot = new builder.UniversalBot(connector);
 bot.set('storage', tableStorage);
 
-// This basically guides the user through finding the restaurant they want.
-var bot1 = new builder.UniversalBot(connector, [
+// Make sure you add code to validate these fields
+var luisAppId = process.env.luisAppId;
+var luisAPIKey = process.env.luisAPIKey;
+var luisAPIHostName = process.env.LuisAPIHostName || 'westus.api.cognitive.microsoft.com';
+
+const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' + luisAppId + '&subscription-key=' + luisAPIKey;
+
+// Main dialog with LUIS
+var recognizer = new builder.LuisRecognizer(LuisModelUrl);
+var intents = new builder.IntentDialog({ recognizers: [recognizer] })
+    .matches('Greeting', (session) => {
+        session.send('Hello there! This is a chat bot for you to explore new food or make a reservation!', session.message.text);
+    })
+    .matches('Help', (session) => {
+        session.send('You reached Help intent, you said \'%s\'.', session.message.text);
+    })
+    .matches('Cancel', (session) => {
+        session.send('You reached Cancel intent, you said \'%s\'.', session.message.text);
+    })
+    /*
+    .matches('<yourIntent>')... See details at http://docs.botframework.com/builder/node/guides/understanding-natural-language/
+    */
+    .matches('Reservation', (session) => {
+        session.beginDialog('/MakeReservation');
+    })
+    .matches('Recommendation', (session) => {
+        session.beginDialog('/MakeRecommendation');
+    })
+    .onDefault((session) => {
+        session.send('Sorry, I did not understand \'%s\'.', session.message.text);
+    });
+
+bot.dialog('/MakeReservation', [
     function (session) {
         session.send("Welcome to the dinner reservation.");
         builder.Prompts.time(session, "Please provide a reservation date and time (e.g.: June 6th at 5pm)");
@@ -62,33 +93,33 @@ var bot1 = new builder.UniversalBot(connector, [
         session.send(`Reservation confirmed. Reservation details: <br/>Date/Time: ${session.dialogData.reservationDate} <br/>Party size: ${session.dialogData.partySize} <br/>Reservation name: ${session.dialogData.reservationName}`);
         session.endDialog();
     }
-]).set('storage', inMemoryStorage); // Register in-memory storage 
-bot1.set('storage',inMemoryStorage);
+])
 
-// Make sure you add code to validate these fields
-var luisAppId = "2aa3c1dc-f2b7-4fa5-81a2-f1c89be39286";
-var luisAPIKey = "c387a99c50004c5c9cdcac19e844d765";
-var luisAPIHostName = process.env.LuisAPIHostName || 'westus.api.cognitive.microsoft.com';
+// Makes a recommendation for the user.
+bot.dialog('/MakeRecommendation',[
+    function(session) {
+        session.send("I'm gonna try and help you look for something new to eat.");
+        builder.Prompts.text(session, "What kind of food are you craving?");
+    },
+    function(session, results) {
+        session.dialogData.cuisine = results.response;
+        builder.Prompts.choice(session, "What is your price range?", 'Economic|Reasonable|Expensive', {listStyle : 3});
+    },
+    function(session, results) {
+        var budgets = ['Economic','Reasonable','Expensive'];
+        if(results.response) {
+            session.dialogData.budget = budgets[results.response.index];
+        }
+        // session.dialogData.budget = results.response;
+        builder.Prompts.text(session, "Where are you at right now?");
+    },
+    function(session, results) {
+        session.dialogData.location = results.response;
 
-const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' + luisAppId + '&subscription-key=' + luisAPIKey;
+        session.send(`You entered: ${session.dialogData.cuisine}, ${session.dialogData.budget}, ${session.dialogData.location}`);
+        session.endDialog();
+    }
+])
 
-// Main dialog with LUIS
-var recognizer = new builder.LuisRecognizer(LuisModelUrl);
-var intents = new builder.IntentDialog({ recognizers: [recognizer] })
-.matches('Greeting', (session) => {
-    session.send('You reached Greeting intent, you said \'%s\'.', session.message.text);
-})
-.matches('Help', (session) => {
-    session.send('You reached Help intent, you said \'%s\'.', session.message.text);
-})
-.matches('Cancel', (session) => {
-    session.send('You reached Cancel intent, you said \'%s\'.', session.message.text);
-})
-/*
-.matches('<yourIntent>')... See details at http://docs.botframework.com/builder/node/guides/understanding-natural-language/
-*/
-.onDefault((session) => {
-    session.send('Sorry, I did not understand \'%s\'.', session.message.text);
-});
-
+bot.dialog('/', intents);
 
