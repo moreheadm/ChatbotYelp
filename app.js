@@ -9,6 +9,7 @@ var restify = require('restify');
 var builder = require('botbuilder');
 var botbuilder_azure = require("botbuilder-azure");
 var https = require('https');
+var promise = require('promise');
 //var bing_search = require('./api-handler-service');
 
 // Setup Restify Server
@@ -60,12 +61,15 @@ var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     .matches('Greeting', (session) => {
         session.send('Hello there! This is a chat bot for you to explore new food or make a reservation!', session.message.text);
+        session.send('Try saying explore new food or make a reservation!', session.message.text);
     })
     .matches('Help', (session) => {
-        session.send('You reached Help intent, you said \'%s\'.', session.message.text);
+        session.send('Say explore new food to find a recommendation, or make a reservation to do so.', session.message.text);
     })
     .matches('Cancel', (session) => {
-        session.send('You reached Cancel intent, you said \'%s\'.', session.message.text);
+        session.send('Sorry to see you cancel! Goodbye.', session.message.text);
+        session.send("Please close this window when you're done.", session.message.text);
+        session.endDialog();
     })
     /*
     .matches('<yourIntent>')... See details at http://docs.botframework.com/builder/node/guides/understanding-natural-language/
@@ -102,10 +106,12 @@ bot.dialog('/MakeReservation', [
     }
 ])
 
-var body = '';
+//var obj;
+//var isRan = false;
 // Gets the JSON object.
-let response_handler = function (response) {
-    //body = '';
+let response_handler = function (response, session) {
+    var obj;
+    var body = '';
     response.on('data', function (d) {
         body += d;
     });
@@ -115,30 +121,41 @@ let response_handler = function (response) {
             // header keys are lower-cased by Node.js
             if (header.startsWith("bingapis-") || header.startsWith("x-msedge-"))
                  console.log(header + ": " + response.headers[header]);
+        obj = JSON.parse(body);
         body = JSON.stringify(JSON.parse(body), null, '  ');
         console.log('\nJSON Response:\n');
         console.log(body);
+        session.send(obj.places.value[0].name);
+        
     });
     response.on('error', function (e) {
         console.log('Error: ' + e.message);
     });
+
 };
 
 // Calling the bing search.
-let bing_web_search = function (search) {
+let bing_web_search = function (search, session) {
     console.log('Searching the Web for: ' + search);
     let request_params = {
           method : 'GET',
-          hostname : 'https://api.cognitive.microsoft.com',
-          path : '/bing/v7.0/entities' + '?q=' + encodeURIComponent(search),
+          hostname : 'api.cognitive.microsoft.com',
+          path : '/bing/v7.0/entities' + '?q=' + encodeURIComponent(search)+'&mkt=en-US',
           headers : {
               'Ocp-Apim-Subscription-Key' : bingAPIKey,
           }
       };
 
+      var handler = function(response) {
+          response_handler(response, session);
+      }
       console.log(request_params.path);
-      let req = https.request(request_params, response_handler);
+      let req = https.request(request_params, handler);
       req.end();
+    //   return new promise(function(resolve, reject) {
+    //     if(obj) {
+    //         resolve(obj);
+    //     }});
   }
 
 // Makes a recommendation for the user.
@@ -160,13 +177,13 @@ bot.dialog('/MakeRecommendation',[
         // Query for the bing search.
         var query = `${session.dialogData.budget} ${session.dialogData.cuisine} restaurants near me`;
 
-        bing_web_search(query);
+        bing_web_search(query, session)
 
         // Parsing the response object.
-        //obj = JSON.parse(body);
+        
+        //session.send(obj);
 
-        session.send("YAY JSON DID WORK!");
-        session.send(body);
+        
           
 
         session.endDialog();
