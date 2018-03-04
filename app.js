@@ -127,7 +127,7 @@ let response_handler = function (response, session) {
         console.log('\nJSON Response:\n');
         console.log(body);
 
-        if(obj.places == undefined) {
+        if(obj.places == null) {
             session.send("I'm sorry, there are no such restaurants around you.");
             return;
             session.endDialog();
