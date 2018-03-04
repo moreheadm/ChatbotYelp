@@ -149,7 +149,7 @@ let response_handler = function (response, session) {
                             "items": [
                                 {
                                     "type": "TextBlock",
-                                    "text": "PIZZA"
+                                    "text": `${cuisine}`
                                 },
                                 {
                                     "type": "TextBlock",
@@ -219,7 +219,7 @@ let bing_web_search = function (search, session) {
     //         resolve(obj);
     //     }});
   }
-
+var cuisine;
 // Makes a recommendation for the user.
 bot.dialog('/MakeRecommendation',[
     function(session) {
@@ -228,6 +228,7 @@ bot.dialog('/MakeRecommendation',[
     },
     function(session, results) {
         session.dialogData.cuisine = results.response;
+        cuisine = session.dialogData.cuisine;
         builder.Prompts.choice(session, "What is your price range?", 'Economic|Reasonable|Expensive', {listStyle : 3});
     },
     function(session, results) {
