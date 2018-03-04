@@ -41,7 +41,7 @@ var inMemoryStorage = new builder.MemoryBotStorage();
 var bot = new builder.UniversalBot(connector);
 bot.set('storage', tableStorage);
 
-// This is a dinner reservation bot that uses a waterfall technique to prompt users for input.
+// This basically guides the user through finding the restaurant they want.
 var bot1 = new builder.UniversalBot(connector, [
     function (session) {
         session.send("Welcome to the dinner reservation.");
