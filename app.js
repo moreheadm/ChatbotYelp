@@ -8,6 +8,8 @@ require('dotenv').load()
 var restify = require('restify');
 var builder = require('botbuilder');
 var botbuilder_azure = require("botbuilder-azure");
+var https = require('https');
+//var bing_search = require('./api-handler-service');
 
 // Setup Restify Server
 var server = restify.createServer();
@@ -46,7 +48,12 @@ var luisAppId = process.env.luisAppId;
 var luisAPIKey = process.env.luisAPIKey;
 var luisAPIHostName = process.env.LuisAPIHostName || 'westus.api.cognitive.microsoft.com';
 
+// For the Bing Entity Search API
+var bingAPIKey = process.env.bingAPIKey;
+var headers = { "Ocp-Apim-Subscription-Key": bingAPIKey }
+
 const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' + luisAppId + '&subscription-key=' + luisAPIKey;
+const bingUrl = 'https://api.cognitive.microsoft.com/bing/v7.0/entities';
 
 // Main dialog with LUIS
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
@@ -95,6 +102,44 @@ bot.dialog('/MakeReservation', [
     }
 ])
 
+var body = '';
+// Gets the JSON object.
+let response_handler = function (response) {
+    //body = '';
+    response.on('data', function (d) {
+        body += d;
+    });
+    response.on('end', function () {
+        console.log('\nRelevant Headers:\n');
+        for (var header in response.headers)
+            // header keys are lower-cased by Node.js
+            if (header.startsWith("bingapis-") || header.startsWith("x-msedge-"))
+                 console.log(header + ": " + response.headers[header]);
+        body = JSON.stringify(JSON.parse(body), null, '  ');
+        console.log('\nJSON Response:\n');
+        console.log(body);
+    });
+    response.on('error', function (e) {
+        console.log('Error: ' + e.message);
+    });
+};
+
+// Calling the bing search.
+let bing_web_search = function (search) {
+    console.log('Searching the Web for: ' + search);
+    let request_params = {
+          method : 'GET',
+          hostname : 'api.cognitive.microsoft.com',
+          path : '/bing/v7.0/entities' + '?q=' + encodeURIComponent(search),
+          headers : {
+              'Ocp-Apim-Subscription-Key' : bingAPIKey,
+          }
+      };
+  
+      let req = https.request(request_params, response_handler);
+      req.end();
+  }
+
 // Makes a recommendation for the user.
 bot.dialog('/MakeRecommendation',[
     function(session) {
@@ -106,17 +151,20 @@ bot.dialog('/MakeRecommendation',[
         builder.Prompts.choice(session, "What is your price range?", 'Economic|Reasonable|Expensive', {listStyle : 3});
     },
     function(session, results) {
-        var budgets = ['Economic','Reasonable','Expensive'];
+        var budgets = ['Cheap','Reasonable','Expensive'];
         if(results.response) {
             session.dialogData.budget = budgets[results.response.index];
         }
-        // session.dialogData.budget = results.response;
-        builder.Prompts.text(session, "Where are you at right now?");
-    },
-    function(session, results) {
-        session.dialogData.location = results.response;
+        
+        // Query for the bing search.
+        var query = `${session.dialogData.budget} ${session.dialogData.cuisine} restaurants near me`;
 
-        session.send(`You entered: ${session.dialogData.cuisine}, ${session.dialogData.budget}, ${session.dialogData.location}`);
+        bing_web_search(query);
+
+        // Parsing the response object.
+        obj = JSON.parse(body);
+          
+
         session.endDialog();
     }
 ])
