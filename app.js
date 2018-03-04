@@ -49,7 +49,7 @@ var luisAPIKey = process.env.luisAPIKey;
 var luisAPIHostName = process.env.LuisAPIHostName || 'westus.api.cognitive.microsoft.com';
 
 // For the Bing Entity Search API
-var bingAPIKey = process.env.bingAPIKey;
+var bingAPIKey = "1aff36c2d81b42ed8aede88c3842c406";
 var headers = { "Ocp-Apim-Subscription-Key": bingAPIKey }
 
 const LuisModelUrl = 'https://' + luisAPIHostName + '/luis/v1/application?id=' + luisAppId + '&subscription-key=' + luisAPIKey;
@@ -129,13 +129,14 @@ let bing_web_search = function (search) {
     console.log('Searching the Web for: ' + search);
     let request_params = {
           method : 'GET',
-          hostname : 'api.cognitive.microsoft.com',
+          hostname : 'https://api.cognitive.microsoft.com',
           path : '/bing/v7.0/entities' + '?q=' + encodeURIComponent(search),
           headers : {
               'Ocp-Apim-Subscription-Key' : bingAPIKey,
           }
       };
-  
+
+      console.log(request_params.path);
       let req = https.request(request_params, response_handler);
       req.end();
   }
@@ -162,7 +163,7 @@ bot.dialog('/MakeRecommendation',[
         bing_web_search(query);
 
         // Parsing the response object.
-        obj = JSON.parse(body);
+        //obj = JSON.parse(body);
           
 
         session.endDialog();
