@@ -164,6 +164,9 @@ bot.dialog('/MakeRecommendation',[
 
         // Parsing the response object.
         //obj = JSON.parse(body);
+
+        session.send("YAY JSON DID WORK!");
+        session.send(body);
           
 
         session.endDialog();
