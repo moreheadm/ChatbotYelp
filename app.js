@@ -10,6 +10,7 @@ var builder = require('botbuilder');
 var botbuilder_azure = require("botbuilder-azure");
 var https = require('https');
 var promise = require('promise');
+var adaptive_cards = require('adaptivecards');
 //var bing_search = require('./api-handler-service');
 
 // Setup Restify Server
@@ -125,8 +126,69 @@ let response_handler = function (response, session) {
         body = JSON.stringify(JSON.parse(body), null, '  ');
         console.log('\nJSON Response:\n');
         console.log(body);
-        session.send(obj.places.value[0].name);
+
+        if(obj.places == undefined) {
+            session.send("I'm sorry, there are no such restaurants around you.");
+            return;
+            session.endDialog();
+        }
         
+        //session.send(obj.places.value[0].name);
+        var card = {
+            contentType: "application/vnd.microsoft.card.adaptive",
+            content: {
+            "type": "AdaptiveCard",
+            "version": "1.0",
+            "body": [
+                {
+                    "type": "ColumnSet",
+                    "columns": [
+                        {
+                            "type": "Column",
+                            "width": 2,
+                            "items": [
+                                {
+                                    "type": "TextBlock",
+                                    "text": "PIZZA"
+                                },
+                                {
+                                    "type": "TextBlock",
+                                    "text": `${obj.places.value[0].name}`,
+                                    "weight": "bolder",
+                                    "size": "extraLarge",
+                                    "spacing": "none"
+                                },
+                                {
+                                    "type": "TextBlock",
+                                    "text": `${obj.places.value[0].address.addressLocality}, ${obj.places.value[0].address.addressRegion}, ${obj.places.value[0].address.postalCode}`,
+                                    "weight": "bolder",
+                                    "spacing": "some"
+                                    
+                                },
+                                {
+                                    "type": "TextBlock",
+                                    "text": `${obj.places.value[0].telephone}`
+                                }
+                            ]
+                        }
+                        
+                    ]
+                }
+            ],
+            "actions": [
+                {
+                    "type": "Action.OpenUrl",
+                    "title": "More Info",
+                    "url": `${obj.places.value[0].url}`
+                }
+            ]
+        }
+    };
+
+        var msg = new builder.Message(session).addAttachment(card);
+        msg.text('I think you will like this restauarant!');
+        session.send(msg);
+
     });
     response.on('error', function (e) {
         console.log('Error: ' + e.message);
